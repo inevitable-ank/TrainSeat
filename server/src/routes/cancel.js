@@ -1,7 +1,8 @@
-const express = require('express');
-const { cancelReservation } = require('../controllers/cancelController');
+import express from "express";
+import { cancelReservation } from "../controllers/cancelController.js";
+
 const router = express.Router();
 
-router.post('/', cancelReservation);
+router.post("/", cancelReservation);
 
-module.exports = router;
+export default router;

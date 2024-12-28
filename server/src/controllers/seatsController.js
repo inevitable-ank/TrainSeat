@@ -1,14 +1,15 @@
-const db = require('../db');
+import { db } from "../db/index.js";
+import { seats } from "../db/schema.js";
 
-// Fetch all seats
-const getSeats = async (req, res) => {
+export const getSeats = async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM Seats ORDER BY row_number, seat_number');
-    res.json(result.rows);
+    const allSeats = await db
+      .select()
+      .from(seats)
+      .orderBy(seats.row_number, seats.seat_number);
+    res.json(allSeats);
   } catch (error) {
-    console.error('Error fetching seats:', error);
-    res.status(500).json({ error: 'Error fetching seats' });
+    console.error("Error fetching seats:", error);
+    res.status(500).json({ error: "Error fetching seats" });
   }
 };
-
-module.exports = { getSeats };

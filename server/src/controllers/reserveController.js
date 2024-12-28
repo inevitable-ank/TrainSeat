@@ -1,47 +1,40 @@
-const db = require('../db');
+import { db } from "../db/index.js";
+import { users, seats } from "../db/schema.js";
 
-// Reserve seats
-const reserveSeats = async (req, res) => {
+export const reserveSeats = async (req, res) => {
+  const { username, seatCount } = req.body;
+
+  if (!username || !seatCount) {
+    return res.status(400).json({ error: "Invalid input" });
+  }
+
   try {
-    const { username, seatCount } = req.body;
-
-    if (!username || !seatCount) {
-      return res.status(400).json({ error: 'Invalid input' });
-    }
-
-    // Check if user exists, create if not
-    const user = await db.query('SELECT * FROM Users WHERE username = $1', [username]);
-    let userId = user.rows[0]?.id;
-    if (!userId) {
-      const newUser = await db.query(
-        'INSERT INTO Users (username) VALUES ($1) RETURNING id',
-        [username]
-      );
-      userId = newUser.rows[0].id;
+    // Find or create user
+    let user = await db.select().from(users).where(users.username.eq(username)).limit(1);
+    if (user.length === 0) {
+      [user] = await db.insert(users).values({ username }).returning();
     }
 
     // Fetch available seats
-    const availableSeats = await db.query(
-      'SELECT * FROM Seats WHERE is_reserved = FALSE LIMIT $1',
-      [seatCount]
-    );
+    const availableSeats = await db
+      .select()
+      .from(seats)
+      .where(seats.is_reserved.eq(false))
+      .limit(seatCount);
 
-    if (availableSeats.rows.length < seatCount) {
-      return res.status(400).json({ error: 'Not enough seats available' });
+    if (availableSeats.length < seatCount) {
+      return res.status(400).json({ error: "Not enough seats available" });
     }
 
     // Reserve seats
-    const reservedSeats = availableSeats.rows.map((seat) => seat.id);
-    await db.query(
-      'UPDATE Seats SET is_reserved = TRUE, reserved_by = $1 WHERE id = ANY($2)',
-      [userId, reservedSeats]
-    );
+    await db
+      .update(seats)
+      .set({ is_reserved: true, reserved_by: user.id })
+      .where(seats.id.in(availableSeats.map((seat) => seat.id)));
 
-    res.json({ message: 'Seats reserved successfully' });
+    res.json({ message: "Seats reserved successfully" });
   } catch (error) {
-    console.error('Error reserving seats:', error);
-    res.status(500).json({ error: 'Error reserving seats' });
+    console.error("Error reserving seats:", error);
+    res.status(500).json({ error: "Error reserving seats" });
   }
 };
-
-module.exports = { reserveSeats };
